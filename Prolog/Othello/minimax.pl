@@ -1,0 +1,1 @@
+/* module de recherche algorithme minimax */
