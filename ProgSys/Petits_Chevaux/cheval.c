@@ -44,7 +44,6 @@ main( int nb_arg , char * tab_arg[] )
   piste_id_t arrivee = 0 ;
 
   int shmidL,shmidP,semidL,semidP;
-  int * adrL,adrP;  
 
   cell_t cell_cheval ;
 
@@ -96,28 +95,26 @@ main( int nb_arg , char * tab_arg[] )
   elem_cell_affecter(&elem_cheval , cell_cheval ) ;
   elem_etat_affecter(&elem_cheval , EN_COURSE ) ;
 
-  /* Récupératio de la liste pré-existente*/
+  /* Récupération de la liste pré-existente du tableau de jeu et des semlahores lié*/
 
   shmidL = shmget(cle_liste,sizeof(liste_t),0666);
-  adrL = shmat(shmidL,0,0);
-
+  liste = shmat(shmidL,0,0);
+  
   shmidP = shmget(cle_piste,sizeof(piste_t),0666);
-  adrP = shmat(shmidP,0,0);
+  piste = shmat(shmidP,0,0);
 	
   semidP = semget(cle_piste,PISTE_LONGUEUR,0666);
 	
   semidL = semget(cle_liste,1,0666);
-  semop(semidL,&Op_P_L,1);
-
+  
+  elem_sem_creer(&elem_cheval);
 
 
   /* 
    * Enregistrement du cheval dans la liste
    */
-
-  id_cheval = liste_elem_ajouter(&adrL[0],elem_cheval);
-
-  liste_afficher(&adrL[0]);
+  semop(semidL,&Op_P_L,1);
+  liste_elem_ajouter(&liste,elem_cheval);
 
   semop(semidL,&Op_V_L,1);
 
@@ -131,16 +128,20 @@ main( int nb_arg , char * tab_arg[] )
        */
 
 	semop(semidL,&Op_P_L,1);
-	elem_cheval = liste_elem_lire(&adrL[0],id_cheval);
+	liste_elem_rechercher(&id_cheval,liste,elem_cheval)
+	elem_cheval = liste_elem_lire(liste,id_cheval);
 	semop(semidL,&Op_V_L,1);
-	
+	elem_sem_verrouiller(&elem_cheval);
 	if(elem_decanille(elem_cheval)){
 		fini=VRAI;	
+		elem_sem_detruire(&elem_cheval);
 		semop(semidL,&Op_P_L,1);
-		liste_elem_supprimer(&adrL[0],id_cheval);
+		if(liste_elem_rechercher(&id_cheval,liste,elem_cheval)){
+			liste_elem_supprimer(liste,id_cheval);}
 		semop(semidL,&Op_V_L,1);		
 		break;
 	}
+	elem_sem_deverrouiller(&elem_cheval);
       /*
        * Avancee sur la piste
        */
@@ -152,7 +153,7 @@ main( int nb_arg , char * tab_arg[] )
 #endif
 
       arrivee = depart+deplacement ;
-
+	
       if( arrivee > PISTE_LONGUEUR-1 )
 	{
 	  arrivee = PISTE_LONGUEUR-1 ;
@@ -166,33 +167,86 @@ main( int nb_arg , char * tab_arg[] )
 	   * Si case d'arrivee occupee alors on decanille le cheval existant 
 	   */
 		struct sembuf op = Op_P_P(arrivee);
+
 		semop(semidP,&op,1);
-			if(piste_cell_libre(adrP[0],arrivee)){
-				cell_t cell_ext;
-				piste_cell_lire(adrP[0],arrivee,&cell_ext);
-				int ext_pid = cell_pid_lire(cell);
-				semop(semidL,&Op_P_L,1);
-				liste_elem_decaniller(&adrL[0],);
-				semop(semidL,&Op_V_L,1);			
-			}
-		semop(semidL,&op,1);
-	      	if
+		if(piste_cell_occupee(piste,arrivee)){
+			cell_t cheval_out;
+			elem_t elem_out;
+			piste_cell_lire(piste,arrivee,&cheval_out);
+			elem_cell_affecter(&elem_out,cheval_out);
+			
+			semop(semidL,&Op_P_L,1);
+			liste_elem_rechercher(&id_cheval,liste,elem_out);
+			
+			cheval_out = liste_elem_lire(liste,id_cheval);
+			elem_sem_verrouiller(&cheval_out);
+			
+			liste_elem_decaniller(&liste,id_cheval);
+			
+			elem_sem_deverrouiller(&cheval_out)
+			semop(semidL,&Op_V_L,1);			
+		}
+		
+		 semtmp.sem_num=depart;
+        //operation P sur la case de depart du cheval
+        if(semop(semid_piste,&semtmp,1)==-1){
+           	perror("Pb semop \n");
+	          exit(-1);
+        }
+        //deplacement du cheval dans la case d'arrivee et effacement de la case de depart
+	      piste_cell_affecter(piste,arrivee,cell_cheval);
+	      piste_cell_effacer(piste,depart);
+	
+        //operation V sur la case de depart
+	      semtmp.sem_op=1;
+	      if(semop(semid_piste,&semtmp,1)==-1){
+	       	perror("Pb semop \n");
+		      exit(-1);
+	      }
+
+        //operation V sur la case d'arrivee
+	      semtmp.sem_num=arrivee;
+	      if(semop(semid_piste,&semtmp,1)==-1){
+	       	perror("Pb semop \n");
+		      exit(-1);
+	      }
+	    
 	  /* 
 	   * Deplacement: effacement case de depart, affectation case d'arrivee 
 	   */
+		op = Op_P_P(depart);
 
+		semop(semidP,&op,1);
+		
+		piste_cell_affecter(piste,arrivee,cell_cheval);
+		piste_cell_effacer(piste, depart);
+		
+		op = Op_V_P(depart);
+		semop(semidP,&op,1);
+		
+		
+		op = Op_V_P(arrivee);
+		semop(semidP,&op,1);
 #ifdef _DEBUG_
 	  printf("Deplacement du cheval \"%c\" de %d a %d\n",
 		 marque, depart, arrivee );
 #endif
 
 	  
-	} 
+	}
       /* Affichage de la piste  */
       piste_afficher_lig( piste );
      
       depart = arrivee ;
     }
+	op = Op_P_P(depart);
+
+	semop(semidP,&op,1);
+		
+	piste_cell_effacer(piste, depart);
+		
+	op = Op_V_P(depart);
+	semop(semidP,&op,1);
 
   printf( "Le cheval \"%c\" A FRANCHIT LA LIGNE D ARRIVEE\n" , marque );
 
@@ -201,7 +255,17 @@ main( int nb_arg , char * tab_arg[] )
   /* 
    * Suppression du cheval de la liste 
    */
-
+	semop(semidL,&Op_P_L,1);
+	if(liste_elem_rechercher(&id_cheval,liste,elem_cheval)){
+		
+	
+		liste_elem_supprimer(liste,id_cheval);
+	
+		
+	}
+	
+	semop(semidL,&Op_V_L,1);
+	elem_sem_detruire(&elem_cheval);
   
   exit(0);
 }
