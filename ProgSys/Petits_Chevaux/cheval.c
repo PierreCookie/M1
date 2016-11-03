@@ -27,7 +27,7 @@ static struct sembuf Op_V_P(int i){
 int 
 main( int nb_arg , char * tab_arg[] )
 {     
-
+  struct sembuf op;
   int cle_piste ;
   piste_t * piste = NULL ;
 
@@ -50,7 +50,7 @@ main( int nb_arg , char * tab_arg[] )
 
   elem_t elem_cheval ;
 
-
+  printf("Deplacement du cheval ");
 
   /*-----*/
 
@@ -83,6 +83,7 @@ main( int nb_arg , char * tab_arg[] )
     }
      
 
+
   /* Init de l'attente */
   commun_initialiser_attentes() ;
 
@@ -97,24 +98,30 @@ main( int nb_arg , char * tab_arg[] )
 
   /* Récupération de la liste pré-existente du tableau de jeu et des semlahores lié*/
 
-  shmidL = shmget(cle_liste,sizeof(liste_t),0666);
+   
+  shmidL = shmget(cle_liste,LISTE_MAX*sizeof(elem_t),0666);
   liste = shmat(shmidL,0,0);
   
-  shmidP = shmget(cle_piste,sizeof(piste_t),0666);
+  shmidP = shmget(cle_piste,PISTE_LONGUEUR*sizeof(cell_t),0666);
   piste = shmat(shmidP,0,0);
 	
   semidP = semget(cle_piste,PISTE_LONGUEUR,0666);
 	
   semidL = semget(cle_liste,1,0666);
   
-  elem_sem_creer(&elem_cheval);
+  if (elem_sem_creer( &elem_cheval )==-1){
+    perror("elem_sem_creer: Pb lors de la creation du semaphore\n");
+    exit(-1);
+  }
 
 
   /* 
    * Enregistrement du cheval dans la liste
    */
+	
+  // Blocage de la liste pour l'enregistrement
   semop(semidL,&Op_P_L,1);
-  liste_elem_ajouter(&liste,elem_cheval);
+  liste_elem_ajouter(liste,elem_cheval);
 
   semop(semidL,&Op_V_L,1);
 
@@ -126,20 +133,26 @@ main( int nb_arg , char * tab_arg[] )
       /* 
        * Verif si pas decanille 
        */
+	
+	//BLocage de la liste pour une recherche de notre cheval 
 
 	semop(semidL,&Op_P_L,1);
-	liste_elem_rechercher(&id_cheval,liste,elem_cheval)
+	liste_elem_rechercher(&id_cheval,liste,elem_cheval);
 	elem_cheval = liste_elem_lire(liste,id_cheval);
 	semop(semidL,&Op_V_L,1);
+	
+	//vérouillage de l'état du cheval pour vérifier s'il est décanillé
 	elem_sem_verrouiller(&elem_cheval);
 	if(elem_decanille(elem_cheval)){
 		fini=VRAI;	
+
+		// si le cheval est décanillé alors on supprime son sémaphore et on l'enlève de la Liste
 		elem_sem_detruire(&elem_cheval);
 		semop(semidL,&Op_P_L,1);
 		if(liste_elem_rechercher(&id_cheval,liste,elem_cheval)){
 			liste_elem_supprimer(liste,id_cheval);}
 		semop(semidL,&Op_V_L,1);		
-		break;
+		exit(0);
 	}
 	elem_sem_deverrouiller(&elem_cheval);
       /*
@@ -159,17 +172,21 @@ main( int nb_arg , char * tab_arg[] )
 	  arrivee = PISTE_LONGUEUR-1 ;
 	  fini = VRAI ;
 	}
-
+      
       if( depart != arrivee )
 	{
 
 	  /* 
 	   * Si case d'arrivee occupee alors on decanille le cheval existant 
 	   */
-		struct sembuf op = Op_P_P(arrivee);
+		// On bloque la case d'arrivée et on vérifie si la case est occupée
+
+		op = Op_P_P(arrivee);
 
 		semop(semidP,&op,1);
 		if(piste_cell_occupee(piste,arrivee)){
+		
+			// si la case d'arrivée est occupée on bloque la liste et l'état du cheval adverse pour le mettre a l'état décanillé
 			cell_t cheval_out;
 			elem_t elem_out;
 			piste_cell_lire(piste,arrivee,&cheval_out);
@@ -178,42 +195,21 @@ main( int nb_arg , char * tab_arg[] )
 			semop(semidL,&Op_P_L,1);
 			liste_elem_rechercher(&id_cheval,liste,elem_out);
 			
-			cheval_out = liste_elem_lire(liste,id_cheval);
-			elem_sem_verrouiller(&cheval_out);
+			elem_out = liste_elem_lire(liste,id_cheval);
+			elem_sem_verrouiller(&elem_out);
 			
-			liste_elem_decaniller(&liste,id_cheval);
+			liste_elem_decaniller(liste,id_cheval);
 			
-			elem_sem_deverrouiller(&cheval_out)
+			elem_sem_deverrouiller(&elem_out);
 			semop(semidL,&Op_V_L,1);			
 		}
 		
-		 semtmp.sem_num=depart;
-        //operation P sur la case de depart du cheval
-        if(semop(semid_piste,&semtmp,1)==-1){
-           	perror("Pb semop \n");
-	          exit(-1);
-        }
-        //deplacement du cheval dans la case d'arrivee et effacement de la case de depart
-	      piste_cell_affecter(piste,arrivee,cell_cheval);
-	      piste_cell_effacer(piste,depart);
-	
-        //operation V sur la case de depart
-	      semtmp.sem_op=1;
-	      if(semop(semid_piste,&semtmp,1)==-1){
-	       	perror("Pb semop \n");
-		      exit(-1);
-	      }
-
-        //operation V sur la case d'arrivee
-	      semtmp.sem_num=arrivee;
-	      if(semop(semid_piste,&semtmp,1)==-1){
-	       	perror("Pb semop \n");
-		      exit(-1);
-	      }
 	    
 	  /* 
 	   * Deplacement: effacement case de depart, affectation case d'arrivee 
 	   */
+
+		// Blocage de la case de départ pour ne pas se faire décanillé lors du déplacement
 		op = Op_P_P(depart);
 
 		semop(semidP,&op,1);
@@ -239,6 +235,8 @@ main( int nb_arg , char * tab_arg[] )
      
       depart = arrivee ;
     }
+
+	// blocage de la case de départ pour supprimer notre position sur la piste 
 	op = Op_P_P(depart);
 
 	semop(semidP,&op,1);
