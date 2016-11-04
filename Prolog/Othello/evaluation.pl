@@ -65,12 +65,9 @@ donneListeCasesDansDirection(Dir,Grille,NumLig,NumCol,[Valeur|Q]):-
         getLigne(NumLig,X,NumLig1),
         getColumn(NumCol,Y,NumCol1),
         donneValeurDeCase(Grille,NumLig1,NumCol1,Valeur),
-        donneListeCasesDansDirection(Dir,Grille,NumLig1,NumCol1,Q),!.
+        donneListeCasesDansDirection(Dir,Grille,NumLig1,NumCol1,Q).
 
-donneListeCasesDansDirection(_,_,1,_,[]) :- !.
-donneListeCasesDansDirection(_,_,8,_,[]) :- !.
-donneListeCasesDansDirection(_,_,_,a,[]) :- !.
-donneListeCasesDansDirection(_,_,_,h,[]) :- !.
+donneListeCasesDansDirection(_,_,_,_,[]).
 
 /*
 
@@ -83,22 +80,43 @@ X = [[-, -, -, -, -, -, -, -], [-, -, -, -, -, -, -|...], [-, -, -, -, -, -|...]
 Z = [-, -, x, x, -, -, -].
 */
 
+% oppose renvoie le camp opposé.
 oppose(x,o).
 oppose(o,x).
 
-faitPrise(Camp,[O,Camp|_]) :- oppose(Camp,O).
+faitPrise(Camp,[O,Camp|_]) :- oppose(Camp,O),!.
 faitPrise(Camp,[X|T]) :- oppose(Camp,X),faitPrise(Camp,T).
 
 /*
 
 | ?- grilleDeDepart(X),donneListeCasesDansDirection(northEast,X,6,c,Z),faitPrise(o,Z).
 
+no
+
+grilleDeDepart(X),donneListeCasesDansDirection(north,X,6,d,Z),faitPrise(o,Z).
+
 X = [[-,-,-,-,-,-,-,-],[-,-,-,-,-,-,-,-],[-,-,-,-,-,-,-,-],[-,-,-,o,x,-,-,-],[-,-,-,x,o,-,-,-],[-,-,-,-,-,-,-,-],[-,-,-,-,-,-,-,-],[-,-,-,-,-,-,-,-]]
-Z = [x,x,-,-,-]
+Z = [x,o,-,-,-] ? 
 
 yes
+
 */
 
-leCoupEstValide(Grille,Camp,NumLigne,NumCol) :- caseVide(X,NumLigne,NumCol),donneListeCasesDansDirection(Dir,Grille,NumLigne,NumCol,Retour),faitPrise(Camp,Retour).
+leCoupEstValide(Grille,Camp,NumLigne,NumCol) :- caseVide(Grille,NumLigne,NumCol),donneListeCasesDansDirection(_,Grille,NumLigne,NumCol,Retour),faitPrise(Camp,Retour),!.
 
-retournePionDansDirection(Dir,Depart,NumLig,NumCol,Valeur
+retournePionDansDirection(Dir,Grille,NumLig,NumCol,Camp,Arrivee):- 
+	Direction(Dir,X,Y),
+	getColumn(NumCol,Y,Lig),
+	getLigne(NumLig,X,Col),
+	donneValeurCase(Grille,Lig,Col,Valeur),
+	modiferCase(Arr,Lig,Col,Camp,Arrivee),
+	retournePionDansDirection(Dir,Grille,NumLig,NumCol,Camp,Arr).
+retournePionDansDirection(_,X,_,_,_,X).
+
+deplace([[_|RCol]|RLig],Lig,Col,Lig,Col,Camp,[[Camp|RCol]|RLig]).	
+deplace([
+
+modifierCase(Depart,Lig,Col,Camp,Arrivee):- deplac(Depart,Lig,Col,1,a,Camp,Arrivee). 
+
+	
+coupJoueDansGrille(Depart, NumLig, NumCol,Valeur,Arrivee):-leCoupEstValide(Depart,Valeur,NumLig, NumCol),retournePionDansDirection(_,Depart,NumLig,NumCol,Valeur,Arrivee).
