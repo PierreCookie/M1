@@ -104,19 +104,23 @@ yes
 
 leCoupEstValide(Grille,Camp,NumLigne,NumCol) :- caseVide(Grille,NumLigne,NumCol),donneListeCasesDansDirection(_,Grille,NumLigne,NumCol,Retour),faitPrise(Camp,Retour),!.
 
+deplace([[_|Rcol]|Rlig],Lig,Col,Lig,Col,Camp,[[Camp|Rcol]|Rlig]).	
+deplace([[RCol|Suite]|RLig],Lig,Col,Lig,NCol,Camp,[[RCol|RetourEl]|RetourQ]):-succAlpha(NCol,NCol1),deplace([Suite|RLig],Lig,Col,Lig,NCol1,Camp,[RetourEl,RetourQ]).
+deplace([Tete|Rlig],Lig,Col,Nlig,NCol,Camp,[Tete|Retour]):- succNum(Nlig,NLig2),deplace(Rlig,Lig,Col,NLig2,NCol,Camp,Retour).
+
+modifierCase(Depart,Lig,Col,Camp,Arrivee):- deplace(Depart,Lig,Col,1,a,Camp,Arrivee). 
+
 retournePionDansDirection(Dir,Grille,NumLig,NumCol,Camp,Arrivee):- 
-	Direction(Dir,X,Y),
-	getColumn(NumCol,Y,Lig),
-	getLigne(NumLig,X,Col),
-	donneValeurCase(Grille,Lig,Col,Valeur),
-	modiferCase(Arr,Lig,Col,Camp,Arrivee),
+	direction(Dir,X,Y),
+	getColumn(NumCol,Y,Col),
+	getLigne(NumLig,X,Lig),
+	donneValeurDeCase(Grille,Lig,Col,Valeur),
+	oppose(Camp,Valeur),
+	modifierCase(Arr,Lig,Col,Camp,Arrivee),
 	retournePionDansDirection(Dir,Grille,NumLig,NumCol,Camp,Arr).
 retournePionDansDirection(_,X,_,_,_,X).
 
-deplace([[_|RCol]|RLig],Lig,Col,Lig,Col,Camp,[[Camp|RCol]|RLig]).	
-deplace([
 
-modifierCase(Depart,Lig,Col,Camp,Arrivee):- deplac(Depart,Lig,Col,1,a,Camp,Arrivee). 
 
 	
 coupJoueDansGrille(Depart, NumLig, NumCol,Valeur,Arrivee):-leCoupEstValide(Depart,Valeur,NumLig, NumCol),retournePionDansDirection(_,Depart,NumLig,NumCol,Valeur,Arrivee).
