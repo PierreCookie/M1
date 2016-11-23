@@ -26,10 +26,10 @@ kems : $(fich_obj_kems)
 	$(CCLNK) $(CFLAGS) -pthread  $(fich_obj_kems) -o kems -ltda -L$(DirLibTDA) $(LIB_M)
 
 kems.o : kems.c $(DirJeu)/paquet.h $(DirJeu)/tapis.h 
-	$(CCOBJ) $(CFLAGS)  kems.c -o kems.o -I./ -I$(DirCommun) -I$(DirIncTDA) -I$(DirJeu)
+	$(CCOBJ) $(CFLAGS) kems.c -o kems.o -I./ -I$(DirCommun) -I$(DirIncTDA) -I$(DirJeu)
 
 kems_ncurses : $(fich_obj_kems_ncurses) 
-	$(CCLNK) $(CFLAGS) $(fich_obj_kems_ncurses) -o kems_ncurses $(LIB_CURSES) -ltda -L$(DirLibTDA) $(LIB_M)
+	$(CCLNK) $(CFLAGS) -pthread $(fich_obj_kems_ncurses) -o kems_ncurses $(LIB_CURSES) -ltda -L$(DirLibTDA) $(LIB_M)
 
 kems_ncurses.o : kems_ncurses.c $(DirEcran)/ecran.h 
 	$(CCOBJ) $(CFLAGS)  kems_ncurses.c -o kems_ncurses.o -I./ -I$(DirCommun) -I$(DirJeu) -I$(DirEcran) -I$(DirIncTDA) $(INC_CURSES)

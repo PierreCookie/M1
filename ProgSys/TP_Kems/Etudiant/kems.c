@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+
 #include <sys/types.h>
 #include <sys/ipc.h>
 #include <pthread.h>
@@ -11,7 +12,7 @@
 #include <tapis.h>
 
 
-
+/* Instanciation et initialisation des mutex*/
 pthread_mutex_t mutexCpt = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutexTapis = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutexCarte1 = PTHREAD_MUTEX_INITIALIZER;
@@ -19,37 +20,42 @@ pthread_mutex_t mutexCarte2 = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutexCarte3 = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutexCarte4 = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutexFini = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutexT = PTHREAD_MUTEX_INITIALIZER;
 
-
+/* Liste des variables partagées*/
 tapis_t * tapis_central = TAPIS_NULL ; 
 tapis_t ** tapis = NULL ; /* tableau des tapis */
 booleen_t fini = FAUX ;  
 paquet_t * paquet = PAQUET_NULL ; 
 err_t cr = OK ; 
-carte_id_t c = -1 ; 
-carte_id_t ind_carte = -1 ; 
-carte_id_t ind_carte_central = -1 ; 
+carte_id_t c = -1 ;
 
 int nbJoueursActif = 0;
 
-void fonc_joueur(int i){
+void fonc_joueur(int i){ 
+ 
+	carte_id_t ind_carte = -1 ; 
+	carte_id_t ind_carte_central = -1 ; 
 	booleen_t echange = FAUX ;
 	fini = FAUX ; 
+	int id;
+
+
+	pthread_mutex_lock(&mutexFini);
   while( ! fini ) 
 	{
-    // Affichage Central 
-    printf( "Tapis central \n" ) ;
-    tapis_stdout_afficher( tapis_central ) ;
-    printf( "\n" ); 
-      
-    echange=FAUX ; 
-    	
-	  	/* Affichage Joueur */
-	  	printf( "Tapis joueur %d\n" , i ) ;
-	  	tapis_stdout_afficher( tapis[i] ) ;
-	  	printf( "\n" ); 
+		pthread_mutex_unlock(&mutexFini);
 
+
+ 
+    echange=FAUX ; 
+    
+	  	/* Affichage Joueur */
+    	id = i;
+	  	printf( "Tapis joueur %d\n" , id ) ;
 	  	
+	  	tapis_stdout_afficher( tapis[id] ) ;
+	  	printf( "\n" ); 
 
 		  /* Test arret */
 		  if( tapis_carre( tapis[i] ) )
@@ -57,17 +63,21 @@ void fonc_joueur(int i){
 		    pthread_mutex_lock(&mutexFini);
 		      fini = VRAI ;
 		    pthread_mutex_unlock(&mutexFini);
+
+		    sleep(0.5);
 		      printf( "*----------------------*\n") ; 
 		      printf( "* Le joueur %2d a gagne *\n" , i ) ;
 		      printf( "*----------------------*\n") ; 
 		      break ;  /* Sort de la boucle des joueurs */
 		    }
-
+			/* Prise du mutex du compteur pour incrémentation du nombre de jouerus actifs*/
 			pthread_mutex_lock(&mutexCpt);
 			nbJoueursActif++;
 			if(nbJoueursActif == 1)
 				pthread_mutex_lock(&mutexTapis);
 			pthread_mutex_unlock(&mutexCpt);
+
+			pthread_mutex_lock(&mutexT);
 
 
 		  if( ( cr = tapis_cartes_choisir( &echange , tapis[i] , &ind_carte , tapis_central , &ind_carte_central) ) )
@@ -76,22 +86,22 @@ void fonc_joueur(int i){
 		      erreur_afficher(cr) ; 
 		      exit(-1) ; 
 		    }
-		   
-		
 		  
+		    pthread_mutex_unlock(&mutexT);
+
 
 		  if( echange ) 
 		   {
-
-
-				  switch(ind_carte){
+				/* Prise du mutex associer a l'indice de la carte du tapis centrale a prendre*/		   		
+		   			id = ind_carte_central;
+				  switch(id){
 				  	case 0:	pthread_mutex_lock(&mutexCarte1);break;
 				  	case 1:	pthread_mutex_lock(&mutexCarte2);break;
 				  	case 2:	pthread_mutex_lock(&mutexCarte3);break;
 				  	case 3:	pthread_mutex_lock(&mutexCarte4);break;
 				  }
-
-				     if( ( cr = tapis_cartes_echanger( tapis[i] , ind_carte , tapis_central , ind_carte_central ) ) )
+				 
+				   if( ( cr = tapis_cartes_echanger( tapis[i] , ind_carte , tapis_central , ind_carte_central ) ) )
 						{
 					 		printf( "Pb d'echange de cartes entre la carte %ld du tapis du joueur %d\n" , ind_carte , i ); 
 					 		carte_stdout_afficher( tapis_carte_lire( tapis[i] , ind_carte ) ) ; 
@@ -101,34 +111,51 @@ void fonc_joueur(int i){
 					 		exit(-1) ; 
 						}	   
 
-				switch(ind_carte){
+		         
+
+				id = ind_carte_central;
+				/* Libération du mutex*/
+				switch(id){
 				  	case 0:	pthread_mutex_unlock(&mutexCarte1);break;
 				  	case 1:	pthread_mutex_unlock(&mutexCarte2);break;
 				  	case 2:	pthread_mutex_unlock(&mutexCarte3);break;
 				  	case 3:	pthread_mutex_unlock(&mutexCarte4);break;
-				  } 	 
+				  } 
+				
 
 		   
 
 		   }
-
+			/* prise du mutex pour décrémentation du nombre de joueurs actifs */
 		  	pthread_mutex_lock(&mutexCpt);
 		  	nbJoueursActif--;
 		  	if(nbJoueursActif == 0)
 		  		pthread_mutex_unlock(&mutexTapis);
 		  	pthread_mutex_unlock(&mutexCpt);
-		   
- 	}	
+
+
+		pthread_mutex_lock(&mutexFini);	   
+ 	}
+ 	pthread_mutex_unlock(&mutexFini);	
 
 }
 
 
 void fonc_central(){
+
+	
+	pthread_mutex_lock(&mutexFini);
 	while(!fini){
-		
+		pthread_mutex_unlock(&mutexFini);
+
+		   // Affichage Central 
+  		  	printf( "Tapis central \n" ) ;
+    		tapis_stdout_afficher( tapis_central ) ;
+   			printf( "\n" ); 
+   	   
 
 		pthread_mutex_lock(&mutexTapis);
-			{
+			
 			    
 			   // Pas un seul echange des joueur 
 			   // --> redistribution du tapis central 
@@ -150,11 +177,13 @@ void fonc_central(){
 				  		exit(-1) ; 
 						}
 			    }
-			}
+			
 		pthread_mutex_unlock(&mutexTapis);
 
-		sleep(0.1);
+		
+		pthread_mutex_lock(&mutexFini);
 	}
+	pthread_mutex_unlock(&mutexFini);
 }
 
 
@@ -244,9 +273,6 @@ main( int argc , char * argv[] )
  
    pthread_t thread[NbThread];
 
-  
-   pthread_setconcurrency(TAPIS_NB_CARTES);
-
    for(i = 0; i < NbJoueurs ; i++){
    	pthread_create(&thread[i],NULL,(void *)fonc_joueur,i);
    }
@@ -257,7 +283,6 @@ main( int argc , char * argv[] )
    	pthread_join(thread[i],NULL);
    }
 
-  
  printf("\nDestruction des tapis..." ) ; fflush(stdout) ; 
  for (i=0 ; i<NbJoueurs ; i++ ) 
    {

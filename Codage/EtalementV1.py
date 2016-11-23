@@ -3,25 +3,27 @@ import sys
 from pprint import pprint
 import numpy as np
 import math
+
 def init():
 
-	nbUser = int(sys.argv[1])
-
+	nbUserS = int(sys.argv[1])-1
 	taille=1;
-	
+	nbUser = nbUserS
 	while(nbUser > 1):
-		nbUser = nbUser / 2
+		nbUser = nbUser /2
 		taille += 1
-	return taille
-
+	mat = hadamard(taille)
+	
+	print(mat)
+	etalement(mat,nbUserS)
 
 def hadamard(taille):
 	if (taille == 0):
-		return np.ones([1,1])
+		return np.ones([1,1]).astype(int)
 	matInf = hadamard(taille-1)
 
 	t = pow(2,taille)
-	matRet = np.zeros([t,t])
+	matRet = np.zeros([t,t]).astype(int)
 	l = pow(2,taille-1)
 	for i in range(t):
 		for j in range(t):			
@@ -33,12 +35,19 @@ def hadamard(taille):
 	return matRet
 
 
-def affiche(mat):
-	t = int(math.sqrt(mat.size))
-	mat = np.asarray(mat)
-	print(mat)
-	for i in range(t):
-		for j in range(t):	
-			print(mat[i,j])	
+def generateMessage(tailleMessage):
+	message=[]
+	for i in range(tailleMessage):
+		x=random.getrandbits(1)
+		if x==0:
+			x=-1
+		else:
+			x=1
+		message.append(x)
+	return message
+
+def etalement(mat,nbUser):
+	message	
 	
-affiche(hadamard(init()))
+
+init()
