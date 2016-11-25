@@ -1,0 +1,15 @@
+#include<iostream>
+#include"temps.hpp"
+#include"coureur.hpp"
+
+class Commissaire{
+	public:
+		void start();
+		//void arret();
+		//bool fini(int);		
+	private:
+		const static int MAXJOUEURS = 100;
+		Temps _temp[MAXJOUEURS];
+		int classement[MAXJOUEURS];
+		Coureur ilsCourent[MAXJOUEURS];
+};
