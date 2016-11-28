@@ -1,11 +1,13 @@
 #include<iostream>
 #include"courreur.hpp"
-#include<string>
 int Courreur::NombreCoureurs = 0;	
 
-Courreur::Courreur(string name){
+Courreur::Courreur(char* name){
+
 	nom = name;
+	dossard=NombreCoureurs;
 	NombreCoureurs++;
+	cout<<"TEST3 "<<endl;
 }
 
 void Courreur::cours(){

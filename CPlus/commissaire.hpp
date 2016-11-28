@@ -1,17 +1,17 @@
 #include<iostream>
 #include"temps.hpp"
 #include"courreur.hpp"
-#include<string>
 
 class Commissaire{
 	public:
+		Commissaire();
 		void start();
-		void inscrire(string);
+		void inscrire(char*);
 		//void arret();
 		//bool fini(int);		
 	private:
 		const static int MAXJOUEURS = 100;
-		Temps _temp[MAXJOUEURS];
+		Temps _temp[];
 		int classement[MAXJOUEURS];
-		Courreur ilsCourent[MAXJOUEURS];
+		Courreur _ilsCourent[];
 };
