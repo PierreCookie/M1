@@ -10,10 +10,8 @@ class Courreur{
 
 		Courreur(char*);		
 		Courreur& operator=(const Courreur &c){
-			cout<<"TEST6"<<endl;
 			nom = new char();			
 			strcpy(nom,c.getName());
-			cout<<"TEST7"<<endl;
 			dossard = c.getDossard();
 		}
 		inline char* getName()const{return this->nom;};
